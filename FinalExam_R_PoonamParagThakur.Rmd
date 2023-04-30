@@ -1,0 +1,129 @@
+---
+title: "FinalExam_R_PoonamParagThakur"
+author: "PoonamParagThakur"
+date: '2023-04-29'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tm)
+library(arules)
+library(arulesViz)
+library(SnowballC)
+library(rlang)
+library(RCurl)
+library(tokenizers)
+library(dplyr)
+library(tokenizers)
+library(tidyverse)
+library(plyr)
+library(ggplot2)
+library(stopwords)
+library(networkD3)
+library(textstem)
+```
+
+```{r}
+df <- read.csv("E:/Masters_Coursework/Sem4/Exam2/CleanDF_PoonamParagThakur.csv", stringsAsFactors = FALSE)
+```
+
+```{r}
+df$concatenated <- paste(df$Reviewclass,df$Text)
+# Convert text to lower case
+df$concatenated <- tolower(df$concatenated)
+```
+
+
+```{r}
+# Tokenize text
+corpus <- Corpus(VectorSource(df$concatenated))
+corpus <- tm_map(corpus, removeNumbers)
+corpus <- tm_map(corpus, removePunctuation)
+corpus <- tm_map(corpus, stripWhitespace)
+corpus <- tm_map(corpus, removeWords, stopwords("english"))
+corpus <- tm_map(corpus, stemDocument)
+# create document-term matrix
+dtm <- DocumentTermMatrix(corpus)
+# Convert to transactions object
+transactions <- as(as.matrix(dtm), "transactions")
+# Write transactions to CSV file
+write(transactions, file = "E:/Masters_Coursework/Sem4/Exam2/ARMdata_PoonamParagThakur.csv", sep = ",", quote = FALSE)
+```
+
+```{r}
+transac <- read.transactions("E:/Masters_Coursework/Sem4/Exam2/ARMdata_PoonamParagThakur.csv", sep =",", 
+                                format="basket",  rm.duplicates = TRUE)
+```
+
+
+```{r}
+# Perform ARM
+#rules <- apriori(transac, parameter = list(supp = 0.01, conf = 0.5, target = "rules"))
+rules <- apriori(transac, parameter = list(support = 0.01, confidence = 0.8, minlen = 2))
+
+# Extract the top 10 rules for support, confidence, and lift
+top10_support <- head(sort(rules, by = "support"), 10)
+top10_confidence <- head(sort(rules, by = "confidence"), 10)
+top10_lift <- head(sort(rules, by = "lift"), 10)
+```
+```{r}
+# Print the top 10 rules for support, confidence, and lift
+print("Top 10 rules by support:")
+inspectDT(top10_support)
+```
+
+```{r}
+print("Top 10 rules by confidence:")
+inspectDT(top10_confidence)
+```
+
+```{r}
+print("Top 10 rules by lift:")
+inspectDT(top10_lift)
+```
+
+```{r}
+# Force the right-hand side of top 10 rules to be just "pos" or "neg"
+pos_rules <- subset(rules, subset = rhs %in% "pos")
+neg_rules <- subset(rules, subset = rhs %in% "neg")
+
+# Print the top 10 rules for "pos" and "neg"
+print(pos_rules)
+print(neg_rules)
+```
+
+```{r}
+# Sort rules by support
+sorted_pos_rules <- sort(pos_rules, by = "support", decreasing = TRUE)
+
+# Get top 10 rules with "pos" as the right-hand side by support
+top10_pos_support <- head(sorted_pos_rules, n = 10)
+
+# Print the rules
+print("Top 10 rules with 'pos' as the right-hand side by support:")
+inspectDT(top10_pos_support)
+```
+
+```{r}
+# Sort rules by support
+sorted_neg_rules <- sort(neg_rules, by = "support", decreasing = TRUE)
+
+# Get top 10 rules with "neg" as the right-hand side by support
+top10_neg_support <- head(sorted_neg_rules, n = 10)
+
+# Print the rules
+print("Top 10 rules with 'neg' as the right-hand side by support:")
+inspectDT(top10_neg_support)
+```
+
+```{r}
+# Create network visualization (graph) for top 10 negative rules with support
+plot(top10_neg_support,method="graph",engine='interactive', shading="support", main = "Association Rules Network")
+```
+
+```{r}
+# Create network visualization (graph) for top 10 positive rules with support
+plot(top10_pos_support,method="graph",engine='interactive', shading="support", main = "Association Rules Network")
+```
